@@ -17,6 +17,7 @@ A **Hybrid Fuzzy Capsule Network** for classifying brain MRI scans into 4 catego
 - [Architecture](#architecture)
 - [Dataset](#dataset)
 - [Results](#results)
+- [Live Demo](#live-demo)
 - [Installation](#installation)
 - [Project Structure](#project-structure)
 
@@ -190,12 +191,39 @@ ROUTING_ITERS       = 3
 
 ---
 
+## Live Demo
+
+> **Try it instantly — no installation required.**
+
+An interactive demo is hosted on **Hugging Face Spaces** using **Gradio**:
+
+[![Hugging Face Spaces](https://img.shields.io/badge/🤗%20Hugging%20Face-Spaces-orange?style=for-the-badge)](https://huggingface.co/spaces/YOUR_USERNAME/fuzzy-capsnet)
+
+### What the app does
+
+Upload any brain MRI scan and the model returns:
+
+- **Predicted class** — Glioma, Meningioma, No Tumor, or Pituitary
+- **Softmax confidence scores** — probability bar chart for all 4 classes
+- **Fuzzy Membership Scores** — per-class routing membership values (0–1), showing how strongly each output capsule was activated
+
+### Run the app locally
+
+```bash
+pip install gradio torch torchvision Pillow
+python app.py
+```
+
+Then open `http://localhost:7860` in your browser.
+
+---
+
 ## Project Structure
 
 ```
 fuzzy-capsnet/
 │
-├── app.py
+├── app.py                        # Gradio demo app (Hugging Face Spaces)
 ├── fuzzy_capsnet.ipynb       # Main notebook (all sections)
 ├── fuzzy_capsnet.pt          # Saved model weights (after training)
 │
@@ -245,4 +273,3 @@ Each output capsule has its own learnable `log_sigma`, allowing the routing band
 - Brain Tumor MRI Dataset — [Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
 
 ---
-
