@@ -1,0 +1,24 @@
+# Fuzzy-CapsNet — Brain Tumor Classification
+# Python 3.10.9
+# Install: pip install -r requirements.txt
+
+# deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# data & math
+numpy>=1.23.0
+
+# visualization
+matplotlib>=3.6.0
+seaborn>=0.12.0
+
+# machine learning metrics
+scikit-learn>=1.2.0
+
+# utilities
+tqdm>=4.64.0
+Pillow>=9.4.0
+
+#app
+gradio>=4.0.0
