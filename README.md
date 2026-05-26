@@ -281,7 +281,7 @@ An interactive demo is hosted on **Hugging Face Spaces** using **Gradio**:
 Upload any brain MRI scan and the model returns:
 
 - **Predicted class** — Glioma, Meningioma, No Tumor, or Pituitary
-- **Calibrated confidence scores** — temperature-scaled probability bar chart for all 4 classes (T=0.1), reaching up to **93.86%** confidence on correctly predicted samples
+- **Calibrated confidence scores** — temperature-scaled probability bar chart for all 4 classes.
 - **Fuzzy Membership Scores** — normalised capsule activations (sum to 1), visualised as a bar chart and polar radar
 
 ### Run the app locally
