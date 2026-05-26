@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/PyTorch-2.x-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white"/>
   <img src="https://img.shields.io/badge/Python-3.10-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
   <img src="https://img.shields.io/badge/Task-Medical%20Imaging-brightgreen?style=for-the-badge"/>
-  <img src="https://img.shields.io/badge/Test%20Accuracy-91.25%25-blue?style=for-the-badge"/>
+  <img src="https://img.shields.io/badge/Test%20Accuracy-91.69%25-blue?style=for-the-badge"/>
 </p>
 
 A **Hybrid Fuzzy Capsule Network** for classifying brain MRI scans into 4 categories. The core innovation replaces classic CapsNet's hard dynamic routing with **Gaussian Fuzzy Membership routing**, resulting in smoother gradient flow, better interpretability, and improved handling of intra-class variation.
@@ -171,20 +171,20 @@ dataset/
 
 | Metric | Score |
 |--------|-------|
-| **Accuracy** | **91.25%** |
-| Precision (weighted) | 91.70% |
-| Recall (weighted) | 91.25% |
-| F1-Score (weighted) | 91.03% |
-| ROC-AUC (macro OvR) | **96.47%** |
+| **Accuracy** | **91.69%** |
+| Precision (weighted) | 92.22% |
+| Recall (weighted) | 91.69% |
+| F1-Score (weighted) | 91.47% |
+| ROC-AUC (macro OvR) | **98.42%** |
 
 ### Per-Class Breakdown (Test Set)
 
 | Class | Precision | Recall | F1-Score |
 |-------|-----------|--------|----------|
-| Glioma | 0.9743 | 0.7575 | 0.8523 |
-| Meningioma | 0.8670 | 0.9125 | 0.8892 |
-| No Tumor | 0.8864 | 0.9950 | 0.9376 |
-| Pituitary | 0.9403 | 0.9850 | 0.9621 |
+| Glioma | 0.9773 | 0.7525 | 0.8503 |
+| Meningioma | 0.8465 | 0.9375 | 0.8897 |
+| No Tumor | 0.9089 | 0.9975 | 0.9511 |
+| Pituitary | 0.9561 | 0.9800 | 0.9679 |
 
 > **Note:** Glioma shows slightly lower recall — a known challenge due to its visual similarity with Meningioma in MRI scans.
 
@@ -192,11 +192,11 @@ dataset/
 
 | Metric | Score |
 |--------|-------|
-| Accuracy | 99.12% |
-| F1-Score (macro) | 99.13% |
-| ROC-AUC (macro) | 99.97% |
+| Accuracy | 99.41% |
+| F1-Score (macro) | 99.41% |
+| ROC-AUC (macro) | 99.99% |
 
-Training ran for **50 epochs** on CPU. Best model checkpoint selected via early stopping on validation loss (`val_loss = 0.0342`).
+Training ran for **42 epochs** on CPU. Best model checkpoint selected via early stopping on validation loss (`val_loss = 0.0353`).
 
 ---
 
@@ -274,12 +274,14 @@ An interactive demo is hosted on **Hugging Face Spaces** using **Gradio**:
 
 **[Click here to try the live demo](https://huggingface.co/spaces/nooragab/brain-tumor-classification)**
 
+> App version **v1.1** — includes temperature-calibrated probabilities and normalised fuzzy memberships.
+
 ### What the app does
 
 Upload any brain MRI scan and the model returns:
 
 - **Predicted class** — Glioma, Meningioma, No Tumor, or Pituitary
-- **Calibrated confidence scores** — temperature-scaled probability bar chart for all 4 classes (T=0.1)
+- **Calibrated confidence scores** — temperature-scaled probability bar chart for all 4 classes (T=0.1), reaching up to **93.86%** confidence on correctly predicted samples
 - **Fuzzy Membership Scores** — normalised capsule activations (sum to 1), visualised as a bar chart and polar radar
 
 ### Run the app locally
@@ -346,3 +348,9 @@ fuzzy-capsnet/
 
 - Sabour, S., Frosst, N., & Hinton, G. E. (2017). *Dynamic Routing Between Capsules*. NeurIPS.
 - Brain Tumor MRI Dataset — [Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
+
+## References
+
+- Sabour, S., Frosst, N., & Hinton, G. E. (2017). *Dynamic Routing Between Capsules*. NeurIPS.
+- Brain Tumor MRI Dataset — [Kaggle](https://www.kaggle.com/datasets/masoudnickparvar/brain-tumor-mri-dataset)
+
