@@ -10,6 +10,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 import os
+import json
 
 # ─────────────────────────────────────────────
 #  CONFIG
@@ -19,7 +20,36 @@ NUM_CLASSES = 4
 DROPOUT_P   = 0.3
 ROUTING_ITERS = 3
 CLASS_NAMES = ['Glioma', 'Meningioma', 'No Tumor', 'Pituitary']
-MODEL_PATH  = 'fuzzy_capsnet.pt'
+
+# Paths are relative to this file: put app.py in the repo root, next to models/ and results/
+BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
+MODEL_PATH = os.path.join(BASE_DIR, 'models', 'fuzzy_capsnet.pt')
+CALIB_PATH = os.path.join(BASE_DIR, 'results', 'calibration.json')
+
+# Fallback: files placed directly next to app.py
+if not os.path.exists(MODEL_PATH):
+    _alt = os.path.join(BASE_DIR, 'fuzzy_capsnet.pt')
+    if os.path.exists(_alt):
+        MODEL_PATH = _alt
+if not os.path.exists(CALIB_PATH):
+    _alt = os.path.join(BASE_DIR, 'calibration.json')
+    if os.path.exists(_alt):
+        CALIB_PATH = _alt
+
+# Temperature fitted on the validation set in the notebook (Section 4b).
+# Hard-coded fallback = the value from the run; overridden by calibration.json if present.
+TEMPERATURE, IS_CALIBRATED = 0.1146, True
+if os.path.exists(CALIB_PATH):
+    with open(CALIB_PATH) as f:
+        _c = json.load(f)
+    TEMPERATURE   = float(_c['temperature'])
+    IS_CALIBRATED = bool(_c['calibrated'])
+
+# Test-set numbers from the corrected run (augmentation fix, 1600 test images)
+TEST_ACC, TEST_AUC = '92.63%', '98.73%'
+
+PROB_TITLE = (f'CALIBRATED PROBS (T={TEMPERATURE:.3f})' if IS_CALIBRATED
+              else f'SOFTMAX SCORES (T={TEMPERATURE:.3f})')
 
 MEAN = [0.485, 0.456, 0.406]
 STD  = [0.229, 0.224, 0.225]
@@ -124,13 +154,15 @@ class FuzzyCapsNet(nn.Module):
         return norms, norms
 
     def predict_proba(self, x):
+        """
+        probs      : softmax(norms / T)  — T fitted on the validation set (notebook Section 4b)
+        membership : norms / sum(norms)  — share of total capsule activation (sums to 1)
+        """
         self.eval()
         with torch.no_grad():
-            scores, norms = self(x)
-        probs      = F.softmax(norms, dim=-1)
-        norm_min   = norms.min(dim=-1, keepdim=True).values
-        norm_max   = norms.max(dim=-1, keepdim=True).values
-        membership = (norms - norm_min) / (norm_max - norm_min + 1e-8)
+            _, norms = self(x)
+        probs      = F.softmax(norms / TEMPERATURE, dim=-1)
+        membership = norms / (norms.sum(dim=-1, keepdim=True) + 1e-8)
         return probs, membership
 
 
@@ -144,6 +176,7 @@ if os.path.exists(MODEL_PATH):
     model.load_state_dict(torch.load(MODEL_PATH, map_location=device))
     model.eval()
     print(f"Model loaded from {MODEL_PATH}")
+    print(f"Temperature T = {TEMPERATURE:.4f}  |  calibrated = {IS_CALIBRATED}")
 else:
     print(f"WARNING: {MODEL_PATH} not found — running with random weights.")
 
@@ -213,7 +246,7 @@ CLASS_INFO = {
 # ─────────────────────────────────────────────
 def predict(image: Image.Image):
     if image is None:
-        return None, build_empty_plot(), build_empty_membership(), build_model_info()
+        return build_empty_plot(), build_empty_membership(), build_model_info()
 
     # Convert & run
     if image.mode != 'RGB':
@@ -227,9 +260,9 @@ def predict(image: Image.Image):
     confidence = float(probs[pred_idx]) * 100
     info       = CLASS_INFO[pred_class]
 
-    result_plot   = build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
+    result_plot    = build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
     membership_fig = build_membership_chart(membership, pred_idx)
-    model_fig     = build_model_info()
+    model_fig      = build_model_info()
 
     return result_plot, membership_fig, model_fig
 
@@ -253,10 +286,10 @@ def build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
 
     accent = CLASS_COLORS[pred_class]
 
-    # ── Panel 1: Softmax bar chart ──
+    # ── Panel 1: temperature-scaled softmax bar chart ──
     ax1 = fig.add_subplot(gs[0])
     styled_ax(ax1)
-    ax1.set_title('SOFTMAX PROBABILITIES', color=TEXT_DIM, fontsize=11,
+    ax1.set_title(PROB_TITLE, color=TEXT_DIM, fontsize=11,
                   fontfamily='monospace', pad=10, loc='left')
     colors = [accent if i == pred_idx else BORDER for i in range(NUM_CLASSES)]
     bars   = ax1.barh(CLASS_NAMES, probs * 100, color=colors,
@@ -275,7 +308,7 @@ def build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
     ax1.grid(axis='x', color=BORDER, linewidth=0.5, alpha=0.6)
     ax1.set_axisbelow(True)
 
-    # ── Panel 2: Capsule norms radar-style (polar) ──
+    # ── Panel 2: capsule activation (polar) ──
     ax2 = fig.add_subplot(gs[1], polar=True)
     ax2.set_facecolor(PANEL)
     angles = np.linspace(0, 2 * np.pi, NUM_CLASSES, endpoint=False).tolist()
@@ -293,7 +326,7 @@ def build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
     ax2.set_ylim(0, 1)
     ax2.grid(color=BORDER, linewidth=0.6)
     ax2.spines['polar'].set_color(BORDER)
-    ax2.set_title('CAPSULE ROUTING MAP', color=TEXT_DIM,
+    ax2.set_title('CAPSULE ACTIVATION MAP', color=TEXT_DIM,
                   fontsize=11, fontfamily='monospace', pad=16, loc='center')
 
     # ── Panel 3: Prediction summary ──
@@ -309,7 +342,7 @@ def build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
                           (0.97, 0.05, -0.14, 0), (0.97, 0.05, 0, 0.14)]:
         ax3.plot([x, x+dx], [y, y+dy], color=accent, linewidth=2.5)
 
-    ax3.text(0.5, 0.88, 'DIAGNOSIS', ha='center', va='center',
+    ax3.text(0.5, 0.88, 'PREDICTION', ha='center', va='center',
              color=TEXT_DIM, fontsize=11, fontfamily='monospace')
     ax3.text(0.5, 0.72, pred_class.upper(), ha='center', va='center',
              color=accent, fontsize=20, fontfamily='monospace', fontweight='bold')
@@ -333,7 +366,7 @@ def build_result_plot(probs, membership, pred_idx, pred_class, confidence, info)
              color=TEXT, fontsize=10, fontfamily='monospace')
 
     fig.suptitle(
-        f'Fuzzy-CapsNet  |  Brain MRI Analysis  —  {pred_class}  detected',
+        f'Fuzzy-CapsNet  |  Brain MRI Analysis  —  {pred_class}  predicted',
         color=TEXT, fontsize=13, fontfamily='monospace', y=0.97)
 
     return fig
@@ -343,7 +376,7 @@ def build_membership_chart(membership, pred_idx):
     fig, ax = plt.subplots(figsize=(8, 3.5), facecolor=BG)
     fig.patch.set_facecolor(BG)
     styled_ax(ax)
-    ax.set_title('FUZZY MEMBERSHIP SCORES  —  Gaussian Routing Agreement',
+    ax.set_title('FUZZY MEMBERSHIP  —  normalised capsule activation',
                  color=TEXT_DIM, fontsize=11, fontfamily='monospace', pad=10, loc='left')
 
     accent = CLASS_COLORS[CLASS_NAMES[pred_idx]]
@@ -352,7 +385,7 @@ def build_membership_chart(membership, pred_idx):
     bars = ax.bar(CLASS_NAMES, membership, color=colors, width=0.5,
                   edgecolor=BG, linewidth=1.5)
     ax.set_ylim(0, 1.22)
-    ax.set_ylabel('μ  (0 = non-member,  1 = full member)', fontsize=11, color=TEXT_DIM)
+    ax.set_ylabel('share of total activation  (sums to 1)', fontsize=11, color=TEXT_DIM)
 
     for bar, val, i in zip(bars, membership, range(NUM_CLASSES)):
         c = accent if i == pred_idx else TEXT_DIM
@@ -389,7 +422,7 @@ def build_model_info():
         ('Loss',           'CapsNet Margin Loss  (Hinton et al., 2017)'),
         ('Parameters',     '1,437,444  trainable'),
         ('Input',          '64 × 64 × 3  (RGB MRI scan)'),
-        ('Test Accuracy',  '91.50%     ROC-AUC : 96.47%'),
+        ('Test Accuracy',  f'{TEST_ACC}     ROC-AUC : {TEST_AUC}'),
     ]
 
     y = 0.80
@@ -564,13 +597,13 @@ footer { display: none !important; }
 with gr.Blocks(css=CSS, title="Fuzzy-CapsNet | Brain MRI Classifier") as demo:
 
     # ── Header ──
-    gr.HTML("""
+    gr.HTML(f"""
     <div class="app-header">
         <div>
             <div class="app-title">Fuzzy-CapsNet</div>
             <div class="app-subtitle">Brain MRI Tumor Classification System</div>
         </div>
-        <div class="app-badge">Model v1.0 &nbsp;|&nbsp; 91.50% Test Acc</div>
+        <div class="app-badge">Model v2.0 &nbsp;|&nbsp; {TEST_ACC} Test Acc</div>
     </div>
     """)
 
@@ -603,7 +636,10 @@ with gr.Blocks(css=CSS, title="Fuzzy-CapsNet | Brain MRI Classifier") as demo:
                 &nbsp;Auto-resized to 64x64<br><br>
                 <b>NOTE</b><br>
                 &nbsp;Research use only.<br>
-                &nbsp;Not a clinical tool.
+                &nbsp;Not a clinical tool.<br>
+                &nbsp;Glioma recall on test: 76%.<br>
+                &nbsp;"No Tumor" does not rule<br>
+                &nbsp;out a tumor.
             </div>
             """)
 
