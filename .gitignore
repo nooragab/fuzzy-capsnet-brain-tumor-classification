@@ -1,0 +1,8 @@
+# data is downloaded from Kaggle at run time — never commit it
+dataset/
+*.zip
+
+# python / jupyter noise
+__pycache__/
+.ipynb_checkpoints/
+.DS_Store
